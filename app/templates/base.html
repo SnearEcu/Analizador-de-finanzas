@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ title or "Analizador de Finanzas" }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', path='css/app.css') }}?v={{ static_version or '1' }}">
+</head>
+<body>
+  <div class="backdrop backdrop-a"></div>
+  <div class="backdrop backdrop-b"></div>
+
+  <header class="topbar">
+    <div>
+      <p class="eyebrow">Analizador Financiero Familiar</p>
+      <h1>{{ title or "Panel local" }}</h1>
+      <p class="subtitle">Ingesta de estados, sincronización Gmail y consolidación por titular.</p>
+    </div>
+    <div class="topbar-actions">
+      <button class="ghost-btn" data-action="sync-mail">Sincronizar Gmail</button>
+      <button class="primary-btn" data-action="open-upload">Cargar estado</button>
+    </div>
+  </header>
+
+  <main class="shell">
+    {% block content %}{% endblock %}
+  </main>
+
+  <template id="row-empty-template">
+    <tr class="empty-row">
+      <td colspan="8">No hay datos cargados todavía.</td>
+    </tr>
+  </template>
+
+  <script>
+    window.APP_ENDPOINTS = {
+      summary: "{{ summary_endpoint or '/api/dashboard/summary' }}",
+      statements: "{{ statements_endpoint or '/api/statements' }}",
+      movements: "{{ movements_endpoint or '/api/movements' }}",
+      suggestions: "{{ suggestions_endpoint or '/api/agent-suggestions' }}",
+      mailboxes: "{{ mailboxes_endpoint or '/api/mailboxes' }}",
+      gmailSync: "{{ gmail_sync_endpoint or '/api/ingest/gmail/sync' }}",
+      gmailConnect: "{{ gmail_connect_endpoint or '/api/auth/google/start' }}",
+      uploadStatement: "{{ upload_statement_endpoint or '/api/ingest/upload-statement' }}"
+    };
+  </script>
+  <script src="{{ url_for('static', path='js/app.js') }}?v={{ static_version or '1' }}" defer></script>
+</body>
+</html>

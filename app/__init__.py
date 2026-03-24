@@ -1,0 +1,1 @@
+"""Analizador financiero familiar."""

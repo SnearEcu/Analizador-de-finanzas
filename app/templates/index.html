@@ -1,0 +1,222 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="hero-grid">
+  <article class="panel panel-wide">
+    <div class="panel-head">
+      <div>
+        <p class="panel-kicker">Estado general</p>
+        <h2>Dashboard familiar</h2>
+      </div>
+      <div class="chip-row">
+        <span class="chip" id="summary-period">Periodo actual</span>
+        <span class="chip chip-muted" id="summary-source">Sincronizado por Gmail</span>
+      </div>
+    </div>
+
+    <div class="metrics" id="summary-metrics">
+      <div class="metric">
+        <span class="metric-label">Ingresos</span>
+        <strong data-summary="income">-</strong>
+      </div>
+      <div class="metric">
+        <span class="metric-label">Gastos</span>
+        <strong data-summary="expenses">-</strong>
+      </div>
+      <div class="metric">
+        <span class="metric-label">Pagos</span>
+        <strong data-summary="payments">-</strong>
+      </div>
+      <div class="metric">
+        <span class="metric-label">Transferencias</span>
+        <strong data-summary="transfers">-</strong>
+      </div>
+      <div class="metric">
+        <span class="metric-label">Saldo neto</span>
+        <strong data-summary="net">-</strong>
+      </div>
+    </div>
+
+    <div class="summary-bars" id="summary-bars">
+      <div class="bar-card">
+        <span>Ingresos</span>
+        <div class="bar"><i data-bar="income"></i></div>
+      </div>
+      <div class="bar-card">
+        <span>Gastos</span>
+        <div class="bar"><i data-bar="expenses"></i></div>
+      </div>
+      <div class="bar-card">
+        <span>Pagos</span>
+        <div class="bar"><i data-bar="payments"></i></div>
+      </div>
+      <div class="bar-card">
+        <span>Transferencias</span>
+        <div class="bar"><i data-bar="transfers"></i></div>
+      </div>
+    </div>
+  </article>
+
+  <aside class="panel panel-side">
+    <div class="panel-head compact">
+      <div>
+        <p class="panel-kicker">Conexiones</p>
+        <h2>Gmail y estados</h2>
+      </div>
+    </div>
+
+    <div class="stack">
+      <section class="mini-card">
+        <h3>Cuenta Gmail 1</h3>
+        <p data-mailbox-copy="owner">Conecta el buzón principal para bajar estados y transferencias.</p>
+        <div class="mini-actions">
+          <button class="ghost-btn" data-action="connect-gmail" data-mailbox="owner" data-role="connect-button">Conectar</button>
+          <button class="ghost-btn" data-action="sync-mail" data-mailbox="owner">Sincronizar</button>
+        </div>
+        <p class="sync-status" data-sync-status="owner"></p>
+      </section>
+
+      <section class="mini-card">
+        <h3>Cuenta Gmail 2</h3>
+        <p data-mailbox-copy="spouse">Usada para transferencias y documentos de la otra titular.</p>
+        <div class="mini-actions">
+          <button class="ghost-btn" data-action="connect-gmail" data-mailbox="spouse" data-role="connect-button">Conectar</button>
+          <button class="ghost-btn" data-action="sync-mail" data-mailbox="spouse">Sincronizar</button>
+        </div>
+        <p class="sync-status" data-sync-status="spouse"></p>
+      </section>
+
+      <section class="mini-card accent">
+        <h3>Carga manual</h3>
+        <p>Sube PDFs cuando el correo no tenga adjunto o el banco no envíe archivo.</p>
+        <form id="upload-form" class="upload-form" enctype="multipart/form-data">
+          <label class="file-input">
+            <input type="file" name="file" accept=".pdf,.xlsx,.xls,.csv">
+            <span>Seleccionar archivo</span>
+          </label>
+          <button class="primary-btn" type="submit">Importar</button>
+        </form>
+      </section>
+    </div>
+  </aside>
+</section>
+
+<section class="panel toolbar-panel">
+  <div class="toolbar">
+    <div class="field">
+      <label for="owner-filter">Titular</label>
+      <select id="owner-filter">
+        <option value="">Todos</option>
+        <option value="owner">Titular 1</option>
+        <option value="spouse">Titular 2</option>
+        <option value="family">Familiar</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="institution-filter">Banco</label>
+      <select id="institution-filter">
+        <option value="">Todos</option>
+        <option value="diners">Diners Titanium</option>
+        <option value="internacional">Banco Internacional</option>
+        <option value="pacifico">Banco del Pacífico</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="type-filter">Tipo</label>
+      <select id="type-filter">
+        <option value="">Todos</option>
+        <option value="consumption">Consumos</option>
+        <option value="payment">Pagos</option>
+        <option value="transfer">Transferencias</option>
+        <option value="fee">Cargos</option>
+      </select>
+    </div>
+    <div class="field field-wide">
+      <label for="search-filter">Buscar</label>
+      <input id="search-filter" type="search" placeholder="Comercio, descripción, tarjeta o correo">
+    </div>
+    <button class="ghost-btn" data-action="refresh-data">Actualizar vista</button>
+  </div>
+</section>
+
+<section class="grid-two">
+  <article class="panel">
+    <div class="panel-head">
+      <div>
+        <p class="panel-kicker">Estados</p>
+        <h2>Archivos importados</h2>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Banco</th>
+            <th>Titular</th>
+            <th>Periodo</th>
+            <th>Fecha de corte</th>
+            <th>Pago mínimo</th>
+            <th>Pago total</th>
+            <th>Origen</th>
+          </tr>
+        </thead>
+        <tbody id="statements-table">
+          <tr class="empty-row"><td colspan="7">Esperando importación.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </article>
+
+  <article class="panel">
+    <div class="panel-head">
+      <div>
+        <p class="panel-kicker">Sugerencias</p>
+        <h2>Conciliación y categorías</h2>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Tipo</th>
+            <th>Movimiento</th>
+            <th>Sugerencia</th>
+            <th>Confianza</th>
+          </tr>
+        </thead>
+        <tbody id="suggestions-table">
+          <tr class="empty-row"><td colspan="4">Sin sugerencias todavía.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </article>
+</section>
+
+<section class="panel">
+  <div class="panel-head">
+    <div>
+      <p class="panel-kicker">Movimientos</p>
+      <h2>Detalle unificado</h2>
+    </div>
+  </div>
+  <div class="table-wrap large">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Fecha</th>
+          <th>Banco</th>
+          <th>Titular</th>
+          <th>Descripción</th>
+          <th>Tipo</th>
+          <th>Monto</th>
+          <th>Fuente</th>
+          <th>Confianza</th>
+        </tr>
+      </thead>
+      <tbody id="movements-table">
+        <tr class="empty-row"><td colspan="8">Sin movimientos cargados.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}
