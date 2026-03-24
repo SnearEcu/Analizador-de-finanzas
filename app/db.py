@@ -11,7 +11,11 @@ class Base(DeclarativeBase):
 
 
 ensure_directories()
-engine = create_engine(DATABASE_URL, future=True, connect_args={"check_same_thread": False})
+engine = create_engine(
+    DATABASE_URL,
+    future=True,
+    connect_args={"check_same_thread": False, "timeout": 60},
+)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
 
 

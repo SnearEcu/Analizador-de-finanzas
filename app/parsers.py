@@ -3,6 +3,7 @@ from __future__ import annotations
 import io
 import re
 import unicodedata
+from difflib import get_close_matches
 from dataclasses import dataclass, field
 from datetime import date
 from functools import lru_cache
@@ -18,6 +19,7 @@ from .config import DEFAULT_CURRENCY, OCR_CACHE_DIR
 
 SPANISH_MONTHS = {
     "ENE": 1,
+    "ENR": 1,
     "FEB": 2,
     "MAR": 3,
     "ABR": 4,
@@ -44,6 +46,12 @@ ENGLISH_MONTHS = {
     "OCT": 10,
     "NOV": 11,
     "DEC": 12,
+}
+
+MONTH_ALIASES = {
+    "MYO": 5,
+    "MZO": 3,
+    "SET": 9,
 }
 
 OCR_CHAR_MAP = str.maketrans({"O": "0", "Q": "0", "I": "1", "L": "1", "Z": "2", "S": "5", "B": "8"})
@@ -154,6 +162,21 @@ def ocr_pdf_text(file_path: Path) -> str:
     return joined
 
 
+def resolve_month_token(token: str) -> int | None:
+    token = (token or "").upper()
+    if token in SPANISH_MONTHS:
+        return SPANISH_MONTHS[token]
+    if token in ENGLISH_MONTHS:
+        return ENGLISH_MONTHS[token]
+    if token in MONTH_ALIASES:
+        return MONTH_ALIASES[token]
+    candidates = list(SPANISH_MONTHS.keys()) + list(ENGLISH_MONTHS.keys()) + list(MONTH_ALIASES.keys())
+    match = get_close_matches(token, candidates, n=1, cutoff=0.6)
+    if match:
+        return SPANISH_MONTHS.get(match[0]) or ENGLISH_MONTHS.get(match[0]) or MONTH_ALIASES.get(match[0])
+    return None
+
+
 def detect_institution(file_path: Path) -> str:
     text = parse_pdf_text(file_path)
     upper = text.upper()
@@ -201,10 +224,14 @@ def parse_spanish_date(raw: str | None, fallback_year: int | None = None) -> dat
     value = normalize_whitespace(raw.upper()).replace(".", "").replace("-", "/")
     if "/" in value and re.fullmatch(r"\d{2}/[A-Z]{3}/\d{4}", value):
         day, month, year = value.split("/")
-        return date(int(year), SPANISH_MONTHS[month], int(day))
+        month_num = resolve_month_token(month)
+        if month_num:
+            return date(int(year), month_num, int(day))
     if re.fullmatch(r"\d{2}\s+[A-Z]{3}\s+\d{4}", value):
         day, month, year = value.split()
-        return date(int(year), SPANISH_MONTHS[month], int(day))
+        month_num = resolve_month_token(month)
+        if month_num:
+            return date(int(year), month_num, int(day))
     if re.fullmatch(r"\d{2}/\d{2}", value) and fallback_year:
         day, month = value.split("/")
         return date(fallback_year, int(month), int(day))
@@ -217,12 +244,12 @@ def parse_english_date(raw: str | None, fallback_year: int | None = None) -> dat
     value = normalize_whitespace(raw.upper())
     if re.fullmatch(r"\d{2}-[A-Z]{3}-\d{4}", value):
         day, month, year = value.split("-")
-        month_num = ENGLISH_MONTHS.get(month) or SPANISH_MONTHS.get(month)
+        month_num = resolve_month_token(month)
         if month_num:
             return date(int(year), month_num, int(day))
     if re.fullmatch(r"\d{2}-[A-Z]{3}", value) and fallback_year:
         day, month = value.split("-")
-        month_num = ENGLISH_MONTHS.get(month) or SPANISH_MONTHS.get(month)
+        month_num = resolve_month_token(month)
         if month_num:
             return date(fallback_year, month_num, int(day))
     return None
@@ -237,13 +264,13 @@ def parse_ocr_date(raw: str | None, fallback_year: int | None = None) -> date | 
         match = re.search(pattern, value)
         if match:
             day, month, year = match.groups()
-            month_num = SPANISH_MONTHS.get(month) or ENGLISH_MONTHS.get(month)
+            month_num = resolve_month_token(month)
             if month_num:
                 return date(int(year), month_num, int(day))
     match = re.search(r"(\d{1,2})([A-Z]{3})", value)
     if match and fallback_year:
         day, month = match.groups()
-        month_num = SPANISH_MONTHS.get(month) or ENGLISH_MONTHS.get(month)
+        month_num = resolve_month_token(month)
         if month_num:
             return date(fallback_year, month_num, int(day))
     return None

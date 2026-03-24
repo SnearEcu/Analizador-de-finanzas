@@ -149,6 +149,39 @@ def iter_parts(payload: dict):
             stack.append(part)
 
 
+def collect_message_ids(service, queries: list[str], per_query_limit: int = 50) -> list[str]:
+    seen: set[str] = set()
+    ordered: list[str] = []
+    for query in queries:
+        page_token = None
+        fetched = 0
+        while fetched < per_query_limit:
+            response = (
+                service.users()
+                .messages()
+                .list(
+                    userId="me",
+                    q=query,
+                    maxResults=min(50, per_query_limit - fetched),
+                    pageToken=page_token,
+                )
+                .execute()
+            )
+            messages = response.get("messages", [])
+            if not messages:
+                break
+            for meta in messages:
+                message_id = meta["id"]
+                if message_id not in seen:
+                    seen.add(message_id)
+                    ordered.append(message_id)
+            fetched += len(messages)
+            page_token = response.get("nextPageToken")
+            if not page_token:
+                break
+    return ordered
+
+
 def decode_message_body(payload: dict) -> str:
     for part in iter_parts(payload):
         if part.get("mimeType") == "text/plain":
@@ -272,6 +305,8 @@ def persist_parsed_statement(
             round(movement.amount, 2),
             normalize_description(movement.description_raw),
         )
+        if session.scalar(select(Movement.id).where(Movement.fingerprint == fingerprint)):
+            continue
         record = Movement(
             owner_id=movement_owner.id if movement_owner else owner.id if owner else None,
             statement_file_id=statement.id,
@@ -296,15 +331,9 @@ def persist_parsed_statement(
             extra_json=movement.metadata,
         )
         session.add(record)
-        try:
-            session.flush()
-            imported_count += 1
-            add_category_suggestion(session, record)
-        except IntegrityError:
-            session.rollback()
-            statement = session.scalar(select(StatementFile).where(StatementFile.file_hash == file_hash))
-            if statement is None:
-                raise
+        session.flush()
+        imported_count += 1
+        add_category_suggestion(session, record)
     session.add(StatementImport(statement_file_id=statement.id, status="success", movement_count=imported_count))
     session.flush()
     return statement
@@ -363,9 +392,22 @@ def sync_gmail_mailbox(session: Session, mailbox_id: int, max_results: int = 100
         raise ValueError("Mailbox no encontrado")
     credentials = load_mailbox_credentials(mailbox)
     service = build("gmail", "v1", credentials=credentials, cache_discovery=False)
-    query = "newer_than:365d"
     try:
-        response = service.users().messages().list(userId="me", q=query, maxResults=max_results).execute()
+        statement_queries = [
+            "from:info@e-facturacioninterdin.com newer_than:730d",
+            "from:estadodecuenta@pacificard.ec newer_than:730d",
+            "from:bancaonline@bancointernacional.ec newer_than:730d",
+            'subject:"Estado de cuenta" newer_than:730d has:attachment',
+        ]
+        transfer_queries = [
+            "from:baninter@bancointernacional.ec newer_than:365d",
+            "transferencia OR transferiste OR recibiste newer_than:365d",
+        ]
+        message_ids = collect_message_ids(
+            service,
+            statement_queries + transfer_queries,
+            per_query_limit=max_results,
+        )
     except HttpError as exc:
         raise RuntimeError(f"Error consultando Gmail: {exc}") from exc
     imported_statements = 0
@@ -374,9 +416,9 @@ def sync_gmail_mailbox(session: Session, mailbox_id: int, max_results: int = 100
     scanned_messages = 0
     duplicate_statements = 0
     pdf_attachments_found = 0
-    for message_meta in response.get("messages", []):
+    for message_id in message_ids:
         scanned_messages += 1
-        message = service.users().messages().get(userId="me", id=message_meta["id"], format="full").execute()
+        message = service.users().messages().get(userId="me", id=message_id, format="full").execute()
         payload = message.get("payload", {})
         headers = extract_headers(payload)
         sent_at = None
